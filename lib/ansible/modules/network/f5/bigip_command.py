@@ -349,9 +349,6 @@ class ArgumentSpec(object):
 
 
 def main():
-    if not HAS_F5SDK:
-        raise F5ModuleError("The python f5-sdk module is required")
-
     spec = ArgumentSpec()
 
     client = AnsibleF5Client(
@@ -359,6 +356,9 @@ def main():
         supports_check_mode=spec.supports_check_mode,
         f5_product_name=spec.f5_product_name
     )
+
+    if client.module.params['transport'] != 'cli' and not HAS_F5SDK:
+        raise F5ModuleError("The python f5-sdk module is required for use of f5api")
 
     try:
         mm = ModuleManager(client)

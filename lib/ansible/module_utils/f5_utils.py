@@ -21,12 +21,72 @@
 
 try:
     import bigsuds
-    bigsuds_found = True
+    BIGSUDS_FOUND = True
 except ImportError:
-    bigsuds_found = False
+    BIGSUDS_FOUND = False
+
+from collections import defaultdict
+from ansible.module_utils.basic import AnsibleModule, env_fallback
+from ansible.module_utils.six import iteritems
+
+try:
+    from f5.bigip import ManagementRoot as BigIpMgmt
+    from f5.bigip.contexts import TransactionContextManager as BigIpTxContext
+
+    from f5.bigiq import ManagementRoot as BigIqMgmt
+
+    from f5.iworkflow import ManagementRoot as iWorkflowMgmt
+    from icontrol.exceptions import iControlUnexpectedHTTPError
+    HAS_F5SDK = True
+except ImportError:
+    HAS_F5SDK = False
 
 
-from ansible.module_utils.basic import env_fallback
+F5_COMMON_ARGS = dict(
+    server=dict(
+        type='str',
+        required=True,
+        fallback=(env_fallback, ['F5_SERVER'])
+    ),
+    user=dict(
+        type='str',
+        required=True,
+        fallback=(env_fallback, ['F5_USER'])
+    ),
+    password=dict(
+        type='str',
+        aliases=['pass', 'pwd'],
+        required=True,
+        no_log=True,
+        fallback=(env_fallback, ['F5_PASSWORD'])
+    ),
+    validate_certs=dict(
+        default='yes',
+        type='bool',
+        fallback=(env_fallback, ['F5_VALIDATE_CERTS'])
+    ),
+    server_port=dict(
+        type='int',
+        fallback=(env_fallback, ['F5_SERVER_PORT'])
+    ),
+    state=dict(
+        type='str',
+        default='present',
+        choices=['present', 'absent']
+    ),
+    partition=dict(
+        type='str',
+        default='Common',
+        fallback=(env_fallback, ['F5_PARTITION'])
+    ),
+    timeout=dict(
+        type='int'
+    ),
+    transport=dict(
+        type='str',
+        choices=['cli', 'f5api']
+    ),
+)
 
 
 def f5_argument_spec():
@@ -72,7 +132,7 @@ def f5_argument_spec():
 
 
 def f5_parse_arguments(module):
-    if not bigsuds_found:
+    if not BIGSUDS_FOUND:
         module.fail_json(msg="the python bigsuds module is required")
 
     if module.params['validate_certs']:
@@ -134,70 +194,8 @@ def fq_list_names(partition, list_names):
     return map(lambda x: fq_name(partition, x), list_names)
 
 
-# New style
-
-from abc import ABCMeta, abstractproperty
-from collections import defaultdict
-
-try:
-    from f5.bigip import ManagementRoot as BigIpMgmt
-    from f5.bigip.contexts import TransactionContextManager as BigIpTxContext
-
-    from f5.bigiq import ManagementRoot as BigIqMgmt
-
-    from f5.iworkflow import ManagementRoot as iWorkflowMgmt
-    from icontrol.exceptions import iControlUnexpectedHTTPError
-    HAS_F5SDK = True
-except ImportError:
-    HAS_F5SDK = False
-
-
-from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.six import iteritems, with_metaclass
-
-
-F5_COMMON_ARGS = dict(
-    server=dict(
-        type='str',
-        required=True,
-        fallback=(env_fallback, ['F5_SERVER'])
-    ),
-    user=dict(
-        type='str',
-        required=True,
-        fallback=(env_fallback, ['F5_USER'])
-    ),
-    password=dict(
-        type='str',
-        aliases=['pass', 'pwd'],
-        required=True,
-        no_log=True,
-        fallback=(env_fallback, ['F5_PASSWORD'])
-    ),
-    validate_certs=dict(
-        default='yes',
-        type='bool',
-        fallback=(env_fallback, ['F5_VALIDATE_CERTS'])
-    ),
-    server_port=dict(
-        type='int',
-        default=443,
-        fallback=(env_fallback, ['F5_SERVER_PORT'])
-    ),
-    state=dict(
-        type='str',
-        default='present',
-        choices=['present', 'absent']
-    ),
-    partition=dict(
-        type='str',
-        default='Common',
-        fallback=(env_fallback, ['F5_PARTITION'])
-    )
-)
-
-
 class AnsibleF5Client(object):
+
     def __init__(self, argument_spec=None, supports_check_mode=False,
                  mutually_exclusive=None, required_together=None,
                  required_if=None, required_one_of=None, add_file_common_args=False,
@@ -299,15 +297,14 @@ class AnsibleF5Client(object):
 
 
 class AnsibleF5Parameters(object):
+
     def __init__(self, params=None):
         self._values = defaultdict(lambda: None)
         if params:
             for k, v in iteritems(params):
                 if self.api_map is not None and k in self.api_map:
-                    dict_to_use = self.api_map
                     map_key = self.api_map[k]
                 else:
-                    dict_to_use = self._values
                     map_key = k
 
                 # Handle weird API parameters like `dns.proxy.__iter__` by

@@ -24,7 +24,7 @@ import copy
 
 from ansible import constants as C
 from ansible.module_utils.basic import AnsibleFallbackNotFound
-from ansible.module_utils.f5_utils import ARGS_DEFAULT_VALUE, f5_argument_spec
+from ansible.module_utils.f5_utils import F5_COMMON_ARGS
 from ansible.module_utils.six import iteritems
 from ansible.plugins.action.normal import ActionModule as _ActionModule
 
@@ -54,13 +54,10 @@ class ActionModule(_ActionModule):
             pc.connection = 'network_cli'
             pc.network_os = 'bigip'
             pc.remote_addr = provider['host'] or self._play_context.remote_addr
-            pc.port = int(provider['port'] or self._play_context.port or 22)
-            pc.remote_user = provider['username'] or self._play_context.connection_user
+            pc.port = int(provider['server_port'] or self._play_context.port or 22)
+            pc.remote_user = provider['user'] or self._play_context.connection_user
             pc.password = provider['password'] or self._play_context.password
-            pc.private_key_file = provider['ssh_keyfile'] or self._play_context.private_key_file
             pc.timeout = int(provider['timeout'] or C.PERSISTENT_COMMAND_TIMEOUT)
-            pc.become = provider['authorize'] or False
-            pc.become_pass = provider['auth_pass']
 
             display.vvv('using connection plugin %s' % pc.connection, pc.remote_addr)
             connection = self._shared_loader_obj.connection_loader.get('persistent', pc, sys.stdin)
@@ -88,12 +85,8 @@ class ActionModule(_ActionModule):
             if provider.get('host') is None:
                 provider['host'] = self._play_context.remote_addr
 
-            if provider.get('use_ssl') is None:
-                provider['use_ssl'] = ARGS_DEFAULT_VALUE['use_ssl']
-
-            if provider.get('port') is None:
-                default_port = 443 if provider['use_ssl'] else 80
-                provider['port'] = int(self._play_context.port or default_port)
+            if provider.get('server_port') is None:
+                provider['server_port'] = int(self._play_context.port or 443)
 
             if provider.get('timeout') is None:
                 provider['timeout'] = C.PERSISTENT_COMMAND_TIMEOUT
@@ -104,12 +97,6 @@ class ActionModule(_ActionModule):
             if provider.get('password') is None:
                 provider['password'] = self._play_context.password
 
-            if provider.get('authorize') is None:
-                provider['authorize'] = False
-
-            if provider.get('validate_certs') is None:
-                provider['validate_certs'] = ARGS_DEFAULT_VALUE['validate_certs']
-
             self._task.args['provider'] = provider
 
         result = super(ActionModule, self).run(tmp, task_vars)
@@ -117,7 +104,7 @@ class ActionModule(_ActionModule):
 
     def load_provider(self):
         provider = self._task.args.get('provider', {})
-        for key, value in iteritems(f5_argument_spec):
+        for key, value in iteritems(F5_COMMON_ARGS):
             if key != 'provider' and key not in provider:
                 if key in self._task.args:
                     provider[key] = self._task.args[key]
