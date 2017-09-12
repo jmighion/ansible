@@ -45,7 +45,7 @@ class ActionModule(_ActionModule):
             )
 
         provider = self.load_provider()
-        transport = provider['transport'] or 'cli'
+        transport = provider['transport'] or 'rest'
 
         display.vvvv('connection transport is %s' % transport, self._play_context.remote_addr)
 
@@ -78,26 +78,6 @@ class ActionModule(_ActionModule):
                 rc, out, err = connection.exec_command('prompt()')
 
             task_vars['ansible_socket'] = socket_path
-
-        else:
-            provider['transport'] = 'rest'
-
-            if provider.get('host') is None:
-                provider['host'] = self._play_context.remote_addr
-
-            if provider.get('server_port') is None:
-                provider['server_port'] = int(self._play_context.port or 443)
-
-            if provider.get('timeout') is None:
-                provider['timeout'] = C.PERSISTENT_COMMAND_TIMEOUT
-
-            if provider.get('username') is None:
-                provider['username'] = self._play_context.connection_user
-
-            if provider.get('password') is None:
-                provider['password'] = self._play_context.password
-
-            self._task.args['provider'] = provider
 
         result = super(ActionModule, self).run(tmp, task_vars)
         return result
