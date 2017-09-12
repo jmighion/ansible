@@ -53,7 +53,7 @@ class ActionModule(_ActionModule):
             pc = copy.deepcopy(self._play_context)
             pc.connection = 'network_cli'
             pc.network_os = 'bigip'
-            pc.remote_addr = provider['host'] or self._play_context.remote_addr
+            pc.remote_addr = provider['server'] or self._play_context.remote_addr
             pc.port = int(provider['server_port'] or self._play_context.port or 22)
             pc.remote_user = provider['user'] or self._play_context.connection_user
             pc.password = provider['password'] or self._play_context.password
@@ -80,7 +80,7 @@ class ActionModule(_ActionModule):
             task_vars['ansible_socket'] = socket_path
 
         else:
-            provider['transport'] = 'f5api'
+            provider['transport'] = 'rest'
 
             if provider.get('host') is None:
                 provider['host'] = self._play_context.remote_addr

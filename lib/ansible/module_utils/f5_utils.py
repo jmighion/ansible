@@ -28,6 +28,9 @@ except ImportError:
 from collections import defaultdict
 from ansible.module_utils.basic import AnsibleModule, env_fallback
 from ansible.module_utils.six import iteritems
+from ansible.module_utils.network_common import to_list, ComplexList
+from ansible.module_utils.connection import exec_command
+from ansible.module_utils._text import to_text
 
 try:
     from f5.bigip import ManagementRoot as BigIpMgmt
@@ -84,8 +87,9 @@ F5_COMMON_ARGS = dict(
     ),
     transport=dict(
         type='str',
-        choices=['cli', 'f5api']
-    ),
+        default='rest',
+        choices=['cli', 'rest']
+    )
 )
 
 
@@ -194,6 +198,28 @@ def fq_list_names(partition, list_names):
     return map(lambda x: fq_name(partition, x), list_names)
 
 
+def to_commands(module, commands):
+    spec = {
+        'command': dict(key=True),
+        'prompt': dict(),
+        'answer': dict()
+    }
+    transform = ComplexList(spec, module)
+    return transform(commands)
+
+
+def run_commands(module, commands, check_rc=True):
+    responses = list()
+    commands = to_commands(module, to_list(commands))
+    for cmd in commands:
+        cmd = module.jsonify(cmd)
+        rc, out, err = exec_command(module, cmd)
+        if check_rc and rc != 0:
+            module.fail_json(msg=to_text(err, errors='surrogate_then_replace'), rc=rc)
+        responses.append(to_text(out, errors='surrogate_then_replace'))
+    return responses
+
+
 class AnsibleF5Client(object):
 
     def __init__(self, argument_spec=None, supports_check_mode=False,
@@ -230,12 +256,13 @@ class AnsibleF5Client(object):
         self.check_mode = self.module.check_mode
         self._connect_params = self._get_connect_params()
 
-        try:
-            self.api = self._get_mgmt_root(
-                f5_product_name, **self._connect_params
-            )
-        except iControlUnexpectedHTTPError as exc:
-            self.fail(str(exc))
+        if self.module.params['transport'] != 'cli':
+            try:
+                self.api = self._get_mgmt_root(
+                    f5_product_name, **self._connect_params
+                )
+            except iControlUnexpectedHTTPError as exc:
+                self.fail(str(exc))
 
     def fail(self, msg):
         self.module.fail_json(msg=msg)
