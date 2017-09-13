@@ -277,7 +277,8 @@ class ModuleManager(object):
             for item in list(conditionals):
                 if item(responses):
                     if self.want.match == 'any':
-                        return item
+                        conditionals = list()
+                        break
                     conditionals.remove(item)
 
             if not conditionals:
