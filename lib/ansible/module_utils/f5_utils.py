@@ -84,11 +84,6 @@ F5_COMMON_ARGS = dict(
     ),
     timeout=dict(
         type='int'
-    ),
-    transport=dict(
-        type='str',
-        default='rest',
-        choices=['cli', 'rest']
     )
 )
 

@@ -44,12 +44,12 @@ class ActionModule(_ActionModule):
                 msg='invalid connection specified, expected connection=local, got %s' % self._play_context.connection
             )
 
-        provider = self.load_provider()
-        transport = provider['transport'] or 'rest'
+        transport = self._task.args.get('transport', 'rest')
 
         display.vvvv('connection transport is %s' % transport, self._play_context.remote_addr)
 
         if transport == 'cli':
+            provider = self.load_provider()
             pc = copy.deepcopy(self._play_context)
             pc.connection = 'network_cli'
             pc.network_os = 'bigip'
