@@ -312,7 +312,7 @@ class ModuleManager(object):
         commands = transform(commands)
 
         for index, item in enumerate(commands):
-            if not self._is_valid_mode(item['command']):
+            if not self._is_valid_mode(item['command']) and self.client.module.params['transport'] != 'cli':
                 warnings.append(
                     'Using "write" commands is not idempotent. You should use '
                     'a module that is specifically made for that. If such a '
